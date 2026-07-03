@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schul-Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1220;
+    --card: #1a1f36;
+    --card2: #222842;
+    --text: #e8ebf7;
+    --muted: #99a0c0;
+    --accent: #6c7bff;
+    --accent2: #35d0a5;
+    --warn: #ffb545;
+    --danger: #ff6b7d;
+    --line: #2c3358;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 800px at 80% -10%, #1c2547 0%, var(--bg) 55%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  header { display: flex; justify-content: space-between; align-items: flex-end;
+           flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  h1 { margin: 0; font-size: 26px; letter-spacing: .3px; }
+  .date { color: var(--muted); font-size: 15px; margin-top: 4px; }
+  .status-pill {
+    background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+    padding: 10px 16px; font-size: 14px; display: flex; align-items: center; gap: 10px;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2);
+         box-shadow: 0 0 0 4px rgba(53,208,165,.18); }
+  .dot.off { background: var(--muted); box-shadow: none; }
+
+  .banner {
+    background: rgba(255,181,69,.12); border: 1px solid rgba(255,181,69,.4);
+    color: var(--warn); padding: 10px 14px; border-radius: 12px; font-size: 13px;
+    margin-bottom: 18px; display: none;
+  }
+  .banner.show { display: block; }
+
+  .grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
+  @media (max-width: 800px){ .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 18px; padding: 18px 18px 20px;
+  }
+  .card h2 { margin: 0 0 14px; font-size: 15px; text-transform: uppercase;
+             letter-spacing: 1px; color: var(--muted); font-weight: 600; }
+
+  .lesson { display: grid; grid-template-columns: 62px 1fr auto; gap: 12px;
+            align-items: center; padding: 12px; border-radius: 12px;
+            background: var(--card2); margin-bottom: 8px; border: 1px solid transparent; }
+  .lesson .time { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); line-height: 1.35; }
+  .lesson .subj { font-weight: 600; font-size: 16px; }
+  .lesson .meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .lesson .room { font-size: 13px; color: var(--muted); text-align: right; }
+  .lesson.now { border-color: var(--accent); background: rgba(108,123,255,.16);
+                box-shadow: 0 0 0 1px var(--accent) inset; }
+  .lesson.now .subj::after { content: "· jetzt"; color: var(--accent); font-weight: 600; margin-left: 6px; font-size: 13px; }
+  .lesson.done { opacity: .5; }
+  .lesson.cancelled .subj { text-decoration: line-through; color: var(--danger); }
+  .lesson.cancelled .tag { color: var(--danger); }
+  .lesson.changed { border-color: var(--warn); }
+  .tag { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-left: 8px; }
+  .tag.changed { color: var(--warn); }
+
+  .prog-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 520px){ .prog-row { grid-template-columns: 1fr; } }
+  .chart-box { position: relative; height: 150px; }
+  .chart-center { position: absolute; inset: 0; display: flex; flex-direction: column;
+                  align-items: center; justify-content: center; pointer-events: none; }
+  .chart-center .pct { font-size: 24px; font-weight: 700; }
+  .chart-center .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .prog-sub { text-align: center; font-size: 12px; color: var(--muted); margin-top: 10px; }
+
+  .exam { display: flex; justify-content: space-between; align-items: center;
+          padding: 11px 12px; border-radius: 12px; background: var(--card2); margin-bottom: 8px; }
+  .exam .name { font-weight: 600; font-size: 15px; }
+  .exam .esub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .exam .cd { text-align: right; }
+  .exam .cd .n { font-size: 20px; font-weight: 700; line-height: 1; }
+  .exam .cd .u { font-size: 11px; color: var(--muted); }
+  .exam.soon .cd .n { color: var(--warn); }
+  .empty { color: var(--muted); font-size: 14px; padding: 8px 2px; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 28px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="greeting">Hallo</h1>
+      <div class="date" id="today"></div>
+    </div>
+    <div class="status-pill"><span class="dot" id="statusDot"></span><span id="statusText">…</span></div>
+  </header>
+
+  <div class="banner" id="banner"></div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Heute</h2>
+      <div id="timetable"></div>
+    </div>
+
+    <div>
+      <div class="card" style="margin-bottom:18px;">
+        <h2>Fortschritt</h2>
+        <div class="prog-row">
+          <div>
+            <div class="chart-box">
+              <canvas id="dayChart"></canvas>
+              <div class="chart-center"><span class="pct" id="dayPct">–</span><span class="lbl">Tag</span></div>
+            </div>
+            <div class="prog-sub" id="daySub"></div>
+          </div>
+          <div>
+            <div class="chart-box">
+              <canvas id="yearChart"></canvas>
+              <div class="chart-center"><span class="pct" id="yearPct">–</span><span class="lbl">Schuljahr</span></div>
+            </div>
+            <div class="prog-sub" id="yearSub"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Nächste Tests</h2>
+        <div id="exams"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Aktualisiert <span id="updated"></span> · Daten via eigenem Proxy</footer>
+</div>
+
+<script>
+const PROXY_URL = "https://webuntis-proxy.5ahit.workers.dev";
+
+const wuTime = t => { const s = String(t).padStart(4,"0"); return s.slice(0,2)+":"+s.slice(2); };
+const wuMinutes = t => Math.floor(t/100)*60 + (t%100);
+const parseYmd = n => { const s=String(n); return new Date(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8)); };
+const nowMinutes = () => { const d=new Date(); return d.getHours()*60 + d.getMinutes(); };
+const firstName = () => "Leon";
+
+function pickName(arr, key){
+  if(!Array.isArray(arr) || !arr.length) return "";
+  const o = arr[0];
+  return o.longname || o.name || o[key] || "";
+}
+
+function demoData(){
+  const t = new Date();
+  const ymd = t.getFullYear()*10000+(t.getMonth()+1)*100+t.getDate();
+  return {
+    serverDate: ymd,
+    demo: true,
+    timetable: [
+      {startTime:800, endTime:850,  su:[{longname:"Deutsch"}],     ro:[{name:"R201"}], te:[{longname:"Berger"}],  code:null},
+      {startTime:855, endTime:945,  su:[{longname:"Mathematik"}],  ro:[{name:"R114"}], te:[{longname:"Huber"}],   code:null},
+      {startTime:1000,endTime:1050, su:[{longname:"Englisch"}],    ro:[{name:"R114"}], te:[{longname:"Klein"}],   code:"irregular"},
+      {startTime:1055,endTime:1145, su:[{longname:"Physik"}],      ro:[{name:"Labor2"}],te:[{longname:"Novak"}],  code:null},
+      {startTime:1200,endTime:1250, su:[{longname:"Geschichte"}],  ro:[{name:"R201"}], te:[{longname:"Weber"}],   code:"cancelled"},
+      {startTime:1255,endTime:1345, su:[{longname:"Sport"}],       ro:[{name:"Halle"}],te:[{longname:"Fischer"}], code:null},
+    ],
+    schoolyear: { name:"2025/2026", startDate: 20250908, endDate: 20260703 },
+    exams: [
+      { name:"Schularbeit", subject:"Mathematik", examDate: ymdPlus(3) },
+      { name:"Test",        subject:"Englisch",   examDate: ymdPlus(9) },
+      { name:"Schularbeit", subject:"Deutsch",    examDate: ymdPlus(21) },
+    ],
+  };
+}
+function ymdPlus(days){
+  const d = new Date(Date.now()+days*86400000);
+  return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+}
+
+let dayChart, yearChart;
+
+function render(data){
+  const now = new Date();
+  document.getElementById("greeting").textContent =
+    `${now.getHours()<11?"Guten Morgen":now.getHours()<18?"Hallo":"Guten Abend"}, ${firstName()} 👋`;
+  document.getElementById("today").textContent =
+    now.toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  document.getElementById("updated").textContent = now.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+
+  const lessons = (data.timetable||[]).slice().sort((a,b)=>a.startTime-b.startTime);
+  renderTimetable(lessons);
+  renderStatus(lessons);
+  renderDayProgress(lessons);
+  renderYearProgress(data.schoolyear);
+  renderExams(data.exams||[]);
+}
+
+function renderTimetable(lessons){
+  const box = document.getElementById("timetable");
+  if(!lessons.length){ box.innerHTML = '<div class="empty">Heute keine Stunden 🎉</div>'; return; }
+  const cur = nowMinutes();
+  box.innerHTML = lessons.map(l=>{
+    const start=wuMinutes(l.startTime), end=wuMinutes(l.endTime);
+    const cancelled = l.code==="cancelled";
+    const changed = l.code==="irregular";
+    let cls="lesson";
+    if(cancelled) cls+=" cancelled";
+    else if(cur>=start && cur<end) cls+=" now";
+    else if(cur>=end) cls+=" done";
+    if(changed) cls+=" changed";
+    const subj = pickName(l.su,"name") || "Stunde";
+    const room = pickName(l.ro,"name");
+    const teacher = pickName(l.te,"name");
+    const tag = cancelled? '<span class="tag">entfällt</span>'
+              : changed ? '<span class="tag changed">geändert</span>' : '';
+    return `<div class="${cls}">
+        <div class="time">${wuTime(l.startTime)}<br>${wuTime(l.endTime)}</div>
+        <div><div class="subj">${subj}${tag}</div>
+             <div class="meta">${teacher||""}</div></div>
+        <div class="room">${room||""}</div>
+      </div>`;
+  }).join("");
+}
+
+function renderStatus(lessons){
+  const dot=document.getElementById("statusDot"), txt=document.getElementById("statusText");
+  const cur=nowMinutes();
+  const active=lessons.find(l=>l.code!=="cancelled" && cur>=wuMinutes(l.startTime) && cur<wuMinutes(l.endTime));
+  if(active){
+    dot.className="dot";
+    txt.textContent = `Gerade: ${pickName(active.su,"name")} · ${pickName(active.ro,"name")||"–"}`;
+    return;
+  }
+  const upcoming=lessons.filter(l=>l.code!=="cancelled" && wuMinutes(l.startTime)>cur)
+                        .sort((a,b)=>a.startTime-b.startTime)[0];
+  if(upcoming){
+    dot.className="dot";
+    const inMin=wuMinutes(upcoming.startTime)-cur;
+    txt.textContent = `Pause · nächste: ${pickName(upcoming.su,"name")} in ${inMin} Min`;
+  } else {
+    dot.className="dot off";
+    txt.textContent = lessons.length? "Schule aus für heute" : "Heute schulfrei";
+  }
+}
+
+function donut(canvasId, pct, color){
+  const ctx=document.getElementById(canvasId);
+  const cfg={ type:"doughnut",
+    data:{ datasets:[{ data:[pct,100-pct], backgroundColor:[color,"#2c3358"],
+            borderWidth:0, cutout:"74%" }] },
+    options:{ plugins:{legend:{display:false},tooltip:{enabled:false}},
+              responsive:true, maintainAspectRatio:false, animation:{duration:600} } };
+  return new Chart(ctx,cfg);
+}
+
+function renderDayProgress(lessons){
+  const active=lessons.filter(l=>l.code!=="cancelled");
+  let pct=0, sub="Kein Unterricht";
+  if(active.length){
+    const start=wuMinutes(active[0].startTime);
+    const end=wuMinutes(active[active.length-1].endTime);
+    const cur=nowMinutes();
+    pct=Math.max(0,Math.min(100, Math.round((cur-start)/(end-start)*100)));
+    const totalDone=active.filter(l=>nowMinutes()>=wuMinutes(l.endTime)).length;
+    sub = cur<start ? `Start um ${wuTime(active[0].startTime)}`
+         : cur>=end ? "Feierabend 🎉"
+         : `${totalDone}/${active.length} Stunden vorbei`;
+  }
+  document.getElementById("dayPct").textContent = pct+"%";
+  document.getElementById("daySub").textContent = sub;
+  if(dayChart) dayChart.destroy();
+  dayChart = donut("dayChart", pct, "#6c7bff");
+}
+
+function renderYearProgress(sy){
+  if(!sy){ document.getElementById("yearPct").textContent="–"; return; }
+  const start=parseYmd(sy.startDate), end=parseYmd(sy.endDate), now=new Date();
+  const pct=Math.max(0,Math.min(100, Math.round((now-start)/(end-start)*100)));
+  const daysLeft=Math.max(0, Math.ceil((end-now)/86400000));
+  document.getElementById("yearPct").textContent = pct+"%";
+  document.getElementById("yearSub").textContent = daysLeft>0? `noch ${daysLeft} Tage` : "Schuljahr vorbei";
+  if(yearChart) yearChart.destroy();
+  yearChart = donut("yearChart", pct, "#35d0a5");
+}
+
+function renderExams(exams){
+  const box=document.getElementById("exams");
+  const today=new Date(); today.setHours(0,0,0,0);
+  const list=exams.map(e=>{
+    const raw=e.examDate||e.date;
+    const d=parseYmd(raw);
+    const days=Math.ceil((d-today)/86400000);
+    return { ...e, d, days };
+  }).filter(e=>e.days>=0).sort((a,b)=>a.days-b.days).slice(0,6);
+
+  if(!list.length){ box.innerHTML='<div class="empty">Keine anstehenden Tests 🙌</div>'; return; }
+  box.innerHTML=list.map(e=>{
+    const subj=e.subject || pickName(e.su,"name") || "";
+    const soon=e.days<=3?" soon":"";
+    const when = e.days===0?"heute":e.days===1?"morgen":e.days+" Tagen";
+    return `<div class="exam${soon}">
+      <div><div class="name">${e.name||"Prüfung"}${subj?" · "+subj:""}</div>
+           <div class="esub">${e.d.toLocaleDateString("de-DE",{weekday:"short",day:"numeric",month:"short"})}</div></div>
+      <div class="cd"><div class="n">${e.days||"0"}</div><div class="u">${e.days===0?"heute":"in "+ (e.days===1?"1 Tag":e.days+" Tagen")}</div></div>
+    </div>`;
+  }).join("");
+}
+
+async function load(){
+  const banner=document.getElementById("banner");
+  if(!PROXY_URL){
+    banner.className="banner show";
+    banner.textContent="Demo-Modus: Trage oben im Code deine Cloudflare-Worker-URL bei PROXY_URL ein, um echte WebUntis-Daten zu laden.";
+    render(demoData());
+    return;
+  }
+  try{
+    const res=await fetch(PROXY_URL,{cache:"no-store"});
+    const data=await res.json();
+    if(data.error) throw new Error(data.error);
+    banner.className="banner";
+    render(data);
+  }catch(err){
+    banner.className="banner show";
+    banner.textContent="Konnte WebUntis nicht laden ("+err.message+"). Zeige Demo-Daten.";
+    render(demoData());
+  }
+}
+load();
+setInterval(load, 60000);
+</script>
+</body>
+</html>
