@@ -65,18 +65,19 @@
   .card h2 { margin: 0 0 14px; font-size: 14px; text-transform: uppercase;
              letter-spacing: 1px; color: var(--muted); font-weight: 600; }
 
-  .lesson { display: grid; grid-template-columns: 60px 1fr auto; gap: 12px;
-            align-items: center; padding: 12px; border-radius: 12px;
-            background: var(--card2); margin-bottom: 8px; border: 1px solid transparent; }
-  .lesson .time { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); line-height: 1.35; }
-  .lesson .subj { font-weight: 700; font-size: 16px; }
-  .lesson .meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
-  .lesson .room { font-size: 13px; color: var(--muted); text-align: right; }
-  .lesson.now { border-color: var(--accent); background: rgba(108,123,255,.16);
-                box-shadow: 0 0 0 1px var(--accent) inset; }
-  .lesson.done { opacity: .5; }
-  .lesson.cancelled .subj { text-decoration: line-through; color: var(--danger); }
-  .lesson.changed { border-color: var(--warn); }
+  .slot { display: grid; grid-template-columns: 58px 1fr; gap: 12px; margin-bottom: 8px; }
+  .slot .time { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted);
+                line-height: 1.35; padding-top: 12px; }
+  .slot-lessons { display: flex; gap: 8px; min-width: 0; }
+  .lcard { flex: 1 1 0; min-width: 0; background: var(--card2); border: 1px solid transparent;
+           border-radius: 12px; padding: 12px; }
+  .lcard .subj { font-weight: 700; font-size: 16px; }
+  .lcard .lmeta { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .lcard.now { border-color: var(--accent); background: rgba(108,123,255,.16);
+               box-shadow: 0 0 0 1px var(--accent) inset; }
+  .lcard.done { opacity: .5; }
+  .lcard.cancelled .subj { text-decoration: line-through; color: var(--danger); }
+  .lcard.changed { border-color: var(--warn); }
   .tag { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-left: 8px; color: var(--danger); }
   .tag.changed { color: var(--warn); }
 
@@ -85,8 +86,9 @@
   .wcol h3 { margin: 0 0 8px; font-size: 12px; color: var(--muted); text-transform: uppercase;
              letter-spacing: .5px; text-align: center; font-weight: 600; }
   .wcol h3.is-today { color: var(--accent); }
-  .wcell { background: var(--card2); border: 1px solid transparent; border-radius: 10px;
-           padding: 8px; margin-bottom: 7px; }
+  .wslot { display: flex; gap: 5px; margin-bottom: 7px; }
+  .wcell { flex: 1 1 0; min-width: 0; background: var(--card2); border: 1px solid transparent;
+           border-radius: 10px; padding: 8px; }
   .wcell .wsub { font-weight: 700; font-size: 14px; }
   .wcell .wmeta { font-size: 11px; color: var(--muted); margin-top: 2px; }
   .wcell .wtime { font-size: 10px; color: var(--muted); margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -218,24 +220,47 @@ function lessonClass(l, dayDate){
   return cls.trim();
 }
 
+function groupByStart(lessons){
+  const map=new Map();
+  lessons.slice().sort((a,b)=>a.startTime-b.startTime||a.endTime-b.endTime).forEach(l=>{
+    if(!map.has(l.startTime)) map.set(l.startTime,[]);
+    map.get(l.startTime).push(l);
+  });
+  return [...map.entries()].map(([start,items])=>({ start, end:Math.max(...items.map(x=>x.endTime)), items }));
+}
+
+function lessonCard(l, day){
+  const subj=pickShort(l.su)||"—";
+  const meta=[pickShort(l.te),pickShort(l.ro)].filter(Boolean).join(" · ");
+  const tag = l.code==="cancelled" ? '<span class="tag">entfällt</span>'
+            : l.code==="irregular" ? '<span class="tag changed">geändert</span>' : '';
+  return `<div class="lcard ${lessonClass(l,day)}">
+      <div class="subj">${subj}${tag}</div>
+      <div class="lmeta">${meta}</div>
+    </div>`;
+}
+
+function weekCard(l, day){
+  const subj=pickShort(l.su)||"—";
+  const meta=[pickShort(l.te),pickShort(l.ro)].filter(Boolean).join(" · ");
+  return `<div class="wcell ${lessonClass(l,day)}">
+      <div class="wsub">${subj}</div>
+      <div class="wmeta">${meta}</div>
+      <div class="wtime">${wuTime(l.startTime)}</div>
+    </div>`;
+}
+
 function renderDay(all){
   document.getElementById("timetable").style.display="block";
   document.getElementById("week").style.display="none";
   const box=document.getElementById("timetable");
-  const lessons=all.filter(p=>p.date===ymd(cursor)).sort((a,b)=>a.startTime-b.startTime);
+  const lessons=all.filter(p=>p.date===ymd(cursor));
   if(!lessons.length){ box.innerHTML='<div class="empty">Keine Stunden an diesem Tag</div>'; return; }
-  box.innerHTML=lessons.map(l=>{
-    const subj=pickShort(l.su)||"—";
-    const teacher=pickShort(l.te);
-    const room=pickShort(l.ro);
-    const tag = l.code==="cancelled" ? '<span class="tag">entfällt</span>'
-              : l.code==="irregular" ? '<span class="tag changed">geändert</span>' : '';
-    return `<div class="lesson ${lessonClass(l,cursor)}">
-        <div class="time">${wuTime(l.startTime)}<br>${wuTime(l.endTime)}</div>
-        <div><div class="subj">${subj}${tag}</div><div class="meta">${teacher||""}</div></div>
-        <div class="room">${room||""}</div>
-      </div>`;
-  }).join("");
+  box.innerHTML=groupByStart(lessons).map(g=>`
+      <div class="slot">
+        <div class="time">${wuTime(g.start)}<br>${wuTime(g.end)}</div>
+        <div class="slot-lessons">${g.items.map(l=>lessonCard(l,cursor)).join("")}</div>
+      </div>`).join("");
 }
 
 function renderWeek(all){
@@ -246,20 +271,12 @@ function renderWeek(all){
   let html="";
   for(let i=0;i<5;i++){
     const day=addDays(mon,i);
-    const dy=ymd(day);
-    const lessons=all.filter(p=>p.date===dy).sort((a,b)=>a.startTime-b.startTime);
+    const lessons=all.filter(p=>p.date===ymd(day));
     const head=`<h3 class="${isToday(day)?"is-today":""}">${day.toLocaleDateString("de-DE",{weekday:"short"})} ${day.getDate()}.${day.getMonth()+1}.</h3>`;
-    const cells=lessons.length? lessons.map(l=>{
-      const subj=pickShort(l.su)||"—";
-      const teacher=pickShort(l.te);
-      const room=pickShort(l.ro);
-      return `<div class="wcell ${lessonClass(l,day)}">
-          <div class="wsub">${subj}</div>
-          <div class="wmeta">${[teacher,room].filter(Boolean).join(" · ")}</div>
-          <div class="wtime">${wuTime(l.startTime)}</div>
-        </div>`;
-    }).join("") : '<div class="empty" style="font-size:12px;text-align:center;">–</div>';
-    html+=`<div class="wcol">${head}${cells}</div>`;
+    const body=lessons.length
+      ? groupByStart(lessons).map(g=>`<div class="wslot">${g.items.map(l=>weekCard(l,day)).join("")}</div>`).join("")
+      : '<div class="empty" style="font-size:12px;text-align:center;">–</div>';
+    html+=`<div class="wcol">${head}${body}</div>`;
   }
   box.innerHTML=html;
 }
