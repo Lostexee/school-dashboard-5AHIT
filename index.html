@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Schul-Dashboard</title>
+<title>Stundenplan</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root {
@@ -25,54 +25,74 @@
     background: radial-gradient(1200px 800px at 80% -10%, #1c2547 0%, var(--bg) 55%);
     color: var(--text);
     min-height: 100vh;
-    padding: 24px 16px 64px;
+    padding: 22px 16px 64px;
   }
-  .wrap { max-width: 1040px; margin: 0 auto; }
-  header { display: flex; justify-content: space-between; align-items: flex-end;
-           flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
-  h1 { margin: 0; font-size: 26px; letter-spacing: .3px; }
-  .date { color: var(--muted); font-size: 15px; margin-top: 4px; }
-  .status-pill {
-    background: var(--card); border: 1px solid var(--line); border-radius: 999px;
-    padding: 10px 16px; font-size: 14px; display: flex; align-items: center; gap: 10px;
-  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+
+  .topbar { display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+  .controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .seg { display: inline-flex; background: var(--card); border: 1px solid var(--line);
+         border-radius: 12px; padding: 3px; }
+  .seg button { background: none; border: none; color: var(--muted); font-size: 14px;
+                padding: 7px 16px; border-radius: 9px; cursor: pointer; font-weight: 600; }
+  .seg button.active { background: var(--accent); color: #fff; }
+  .nav { display: inline-flex; gap: 6px; }
+  .navbtn { background: var(--card); border: 1px solid var(--line); color: var(--text);
+            padding: 7px 12px; border-radius: 10px; cursor: pointer; font-size: 15px; line-height: 1; }
+  .navbtn:hover { border-color: var(--accent); }
+  .range-label { font-size: 17px; font-weight: 600; margin-left: 4px; }
+
+  .status-pill { background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+    padding: 9px 15px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2);
          box-shadow: 0 0 0 4px rgba(53,208,165,.18); }
   .dot.off { background: var(--muted); box-shadow: none; }
 
-  .banner {
-    background: rgba(255,181,69,.12); border: 1px solid rgba(255,181,69,.4);
+  .banner { background: rgba(255,181,69,.12); border: 1px solid rgba(255,181,69,.4);
     color: var(--warn); padding: 10px 14px; border-radius: 12px; font-size: 13px;
-    margin-bottom: 18px; display: none;
-  }
+    margin-bottom: 16px; display: none; }
   .banner.show { display: block; }
 
-  .grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
-  @media (max-width: 800px){ .grid { grid-template-columns: 1fr; } }
+  .layout { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; align-items: start; }
+  .wrap.view-week .layout { grid-template-columns: 1fr; }
+  .wrap.view-week .side { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 860px){ .layout { grid-template-columns: 1fr; }
+    .wrap.view-week .side { grid-template-columns: 1fr; } }
 
-  .card {
-    background: var(--card); border: 1px solid var(--line);
-    border-radius: 18px; padding: 18px 18px 20px;
-  }
-  .card h2 { margin: 0 0 14px; font-size: 15px; text-transform: uppercase;
+  .card { background: var(--card); border: 1px solid var(--line);
+          border-radius: 18px; padding: 18px; }
+  .card h2 { margin: 0 0 14px; font-size: 14px; text-transform: uppercase;
              letter-spacing: 1px; color: var(--muted); font-weight: 600; }
 
-  .lesson { display: grid; grid-template-columns: 62px 1fr auto; gap: 12px;
+  .lesson { display: grid; grid-template-columns: 60px 1fr auto; gap: 12px;
             align-items: center; padding: 12px; border-radius: 12px;
             background: var(--card2); margin-bottom: 8px; border: 1px solid transparent; }
   .lesson .time { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); line-height: 1.35; }
-  .lesson .subj { font-weight: 600; font-size: 16px; }
+  .lesson .subj { font-weight: 700; font-size: 16px; }
   .lesson .meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
   .lesson .room { font-size: 13px; color: var(--muted); text-align: right; }
   .lesson.now { border-color: var(--accent); background: rgba(108,123,255,.16);
                 box-shadow: 0 0 0 1px var(--accent) inset; }
-  .lesson.now .subj::after { content: "· jetzt"; color: var(--accent); font-weight: 600; margin-left: 6px; font-size: 13px; }
   .lesson.done { opacity: .5; }
   .lesson.cancelled .subj { text-decoration: line-through; color: var(--danger); }
-  .lesson.cancelled .tag { color: var(--danger); }
   .lesson.changed { border-color: var(--warn); }
-  .tag { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-left: 8px; }
+  .tag { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin-left: 8px; color: var(--danger); }
   .tag.changed { color: var(--warn); }
+
+  .week { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; overflow-x: auto; }
+  .wcol { min-width: 0; }
+  .wcol h3 { margin: 0 0 8px; font-size: 12px; color: var(--muted); text-transform: uppercase;
+             letter-spacing: .5px; text-align: center; font-weight: 600; }
+  .wcol h3.is-today { color: var(--accent); }
+  .wcell { background: var(--card2); border: 1px solid transparent; border-radius: 10px;
+           padding: 8px; margin-bottom: 7px; }
+  .wcell .wsub { font-weight: 700; font-size: 14px; }
+  .wcell .wmeta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .wcell .wtime { font-size: 10px; color: var(--muted); margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .wcell.now { border-color: var(--accent); background: rgba(108,123,255,.16); }
+  .wcell.cancelled .wsub { text-decoration: line-through; color: var(--danger); }
+  .wcell.changed { border-color: var(--warn); }
 
   .prog-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   @media (max-width: 520px){ .prog-row { grid-template-columns: 1fr; } }
@@ -96,23 +116,31 @@
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div>
-      <div class="date" id="today"></div>
+<div class="wrap" id="wrap">
+  <div class="topbar">
+    <div class="controls">
+      <div class="seg" id="seg">
+        <button data-view="day" class="active">Tag</button>
+        <button data-view="week">Woche</button>
+      </div>
+      <div class="nav">
+        <button class="navbtn" id="prev">‹</button>
+        <button class="navbtn" id="today">Heute</button>
+        <button class="navbtn" id="next">›</button>
+      </div>
+      <div class="range-label" id="rangeLabel"></div>
     </div>
     <div class="status-pill"><span class="dot" id="statusDot"></span><span id="statusText">…</span></div>
-  </header>
+  </div>
 
   <div class="banner" id="banner"></div>
 
-  <div class="grid">
+  <div class="layout">
     <div class="card">
-      <h2>Heute</h2>
       <div id="timetable"></div>
+      <div id="week" class="week" style="display:none;"></div>
     </div>
-
-    <div>
+    <div class="side">
       <div class="card" style="margin-bottom:18px;">
         <h2>Fortschritt</h2>
         <div class="prog-row">
@@ -132,7 +160,6 @@
           </div>
         </div>
       </div>
-
       <div class="card">
         <h2>Nächste Tests</h2>
         <div id="exams"></div>
@@ -146,182 +173,200 @@
 <script>
 const PROXY_URL = "https://webuntis-proxy.5ahit.workers.dev";
 
-const wuTime = t => { const s = String(t).padStart(4,"0"); return s.slice(0,2)+":"+s.slice(2); };
-const wuMinutes = t => Math.floor(t/100)*60 + (t%100);
-const parseYmd = n => { const s=String(n); return new Date(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8)); };
-const nowMinutes = () => { const d=new Date(); return d.getHours()*60 + d.getMinutes(); };
-const firstName = () => "Leon";
-
-function pickName(arr, key){
-  if(!Array.isArray(arr) || !arr.length) return "";
-  const o = arr[0];
-  return o.longname || o.name || o[key] || "";
-}
-
-function demoData(){
-  const t = new Date();
-  const ymd = t.getFullYear()*10000+(t.getMonth()+1)*100+t.getDate();
-  return {
-    serverDate: ymd,
-    demo: true,
-    timetable: [
-      {startTime:800, endTime:850,  su:[{longname:"Deutsch"}],     ro:[{name:"R201"}], te:[{longname:"Berger"}],  code:null},
-      {startTime:855, endTime:945,  su:[{longname:"Mathematik"}],  ro:[{name:"R114"}], te:[{longname:"Huber"}],   code:null},
-      {startTime:1000,endTime:1050, su:[{longname:"Englisch"}],    ro:[{name:"R114"}], te:[{longname:"Klein"}],   code:"irregular"},
-      {startTime:1055,endTime:1145, su:[{longname:"Physik"}],      ro:[{name:"Labor2"}],te:[{longname:"Novak"}],  code:null},
-      {startTime:1200,endTime:1250, su:[{longname:"Geschichte"}],  ro:[{name:"R201"}], te:[{longname:"Weber"}],   code:"cancelled"},
-      {startTime:1255,endTime:1345, su:[{longname:"Sport"}],       ro:[{name:"Halle"}],te:[{longname:"Fischer"}], code:null},
-    ],
-    schoolyear: { name:"2025/2026", startDate: 20250908, endDate: 20260703 },
-    exams: [
-      { name:"Schularbeit", subject:"Mathematik", examDate: ymdPlus(3) },
-      { name:"Test",        subject:"Englisch",   examDate: ymdPlus(9) },
-      { name:"Schularbeit", subject:"Deutsch",    examDate: ymdPlus(21) },
-    ],
-  };
-}
-function ymdPlus(days){
-  const d = new Date(Date.now()+days*86400000);
-  return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
-}
-
+let view = "day";
+let cursor = startOfDay(new Date());
 let dayChart, yearChart;
 
-function render(data){
-  const now = new Date();
-  document.getElementById("today").textContent =
-    now.toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-  document.getElementById("updated").textContent = now.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
+function ymd(d){ return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function mondayOf(d){ const x=startOfDay(d); const k=(x.getDay()+6)%7; x.setDate(x.getDate()-k); return x; }
+function parseYmd(n){ const s=String(n); return new Date(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8)); }
+function wuTime(t){ const s=String(t).padStart(4,"0"); return s.slice(0,2)+":"+s.slice(2); }
+function wuMinutes(t){ return Math.floor(t/100)*60 + (t%100); }
+function nowMinutes(){ const d=new Date(); return d.getHours()*60 + d.getMinutes(); }
+function isToday(d){ return ymd(d)===ymd(new Date()); }
+function pickShort(arr){ return (Array.isArray(arr)&&arr.length) ? (arr[0].name||arr[0].longname||"") : ""; }
 
-  const lessons = (data.timetable||[]).slice().sort((a,b)=>a.startTime-b.startTime);
-  renderTimetable(lessons);
-  renderStatus(lessons);
-  renderDayProgress(lessons);
-  renderYearProgress(data.schoolyear);
-  renderExams(data.exams||[]);
+function currentRange(){
+  if(view==="week"){ const m=mondayOf(cursor); return { start:m, end:addDays(m,4) }; }
+  return { start:cursor, end:cursor };
 }
 
-function renderTimetable(lessons){
-  const box = document.getElementById("timetable");
-  if(!lessons.length){ box.innerHTML = '<div class="empty">Heute keine Stunden</div>'; return; }
-  const cur = nowMinutes();
-  box.innerHTML = lessons.map(l=>{
-    const start=wuMinutes(l.startTime), end=wuMinutes(l.endTime);
-    const cancelled = l.code==="cancelled";
-    const changed = l.code==="irregular";
-    let cls="lesson";
-    if(cancelled) cls+=" cancelled";
-    else if(cur>=start && cur<end) cls+=" now";
-    else if(cur>=end) cls+=" done";
-    if(changed) cls+=" changed";
-    const subj = pickName(l.su,"name") || "Stunde";
-    const room = pickName(l.ro,"name");
-    const teacher = pickName(l.te,"name");
-    const tag = cancelled? '<span class="tag">entfällt</span>'
-              : changed ? '<span class="tag changed">geändert</span>' : '';
-    return `<div class="${cls}">
+function fmtDay(d){ return d.toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long",year:"numeric"}); }
+function fmtShort(d){ return d.toLocaleDateString("de-DE",{day:"numeric",month:"short"}); }
+
+function updateRangeLabel(){
+  const {start,end}=currentRange();
+  const el=document.getElementById("rangeLabel");
+  if(view==="week") el.textContent = `${fmtShort(start)} – ${fmtShort(end)} ${end.getFullYear()}`;
+  else el.textContent = fmtDay(start);
+  document.getElementById("wrap").classList.toggle("view-week", view==="week");
+  document.querySelectorAll("#seg button").forEach(b=>b.classList.toggle("active", b.dataset.view===view));
+}
+
+function lessonClass(l, dayDate){
+  const cancelled = l.code==="cancelled";
+  const changed = l.code==="irregular";
+  let cls = cancelled ? "cancelled" : "";
+  if(changed) cls += " changed";
+  if(!cancelled && isToday(dayDate)){
+    const cur=nowMinutes(), s=wuMinutes(l.startTime), e=wuMinutes(l.endTime);
+    if(cur>=s && cur<e) cls+=" now";
+    else if(cur>=e) cls+=" done";
+  }
+  return cls.trim();
+}
+
+function renderDay(all){
+  document.getElementById("timetable").style.display="block";
+  document.getElementById("week").style.display="none";
+  const box=document.getElementById("timetable");
+  const lessons=all.filter(p=>p.date===ymd(cursor)).sort((a,b)=>a.startTime-b.startTime);
+  if(!lessons.length){ box.innerHTML='<div class="empty">Keine Stunden an diesem Tag</div>'; return; }
+  box.innerHTML=lessons.map(l=>{
+    const subj=pickShort(l.su)||"—";
+    const teacher=pickShort(l.te);
+    const room=pickShort(l.ro);
+    const tag = l.code==="cancelled" ? '<span class="tag">entfällt</span>'
+              : l.code==="irregular" ? '<span class="tag changed">geändert</span>' : '';
+    return `<div class="lesson ${lessonClass(l,cursor)}">
         <div class="time">${wuTime(l.startTime)}<br>${wuTime(l.endTime)}</div>
-        <div><div class="subj">${subj}${tag}</div>
-             <div class="meta">${teacher||""}</div></div>
+        <div><div class="subj">${subj}${tag}</div><div class="meta">${teacher||""}</div></div>
         <div class="room">${room||""}</div>
       </div>`;
   }).join("");
 }
 
-function renderStatus(lessons){
+function renderWeek(all){
+  document.getElementById("timetable").style.display="none";
+  const box=document.getElementById("week");
+  box.style.display="grid";
+  const mon=mondayOf(cursor);
+  let html="";
+  for(let i=0;i<5;i++){
+    const day=addDays(mon,i);
+    const dy=ymd(day);
+    const lessons=all.filter(p=>p.date===dy).sort((a,b)=>a.startTime-b.startTime);
+    const head=`<h3 class="${isToday(day)?"is-today":""}">${day.toLocaleDateString("de-DE",{weekday:"short"})} ${day.getDate()}.${day.getMonth()+1}.</h3>`;
+    const cells=lessons.length? lessons.map(l=>{
+      const subj=pickShort(l.su)||"—";
+      const teacher=pickShort(l.te);
+      const room=pickShort(l.ro);
+      return `<div class="wcell ${lessonClass(l,day)}">
+          <div class="wsub">${subj}</div>
+          <div class="wmeta">${[teacher,room].filter(Boolean).join(" · ")}</div>
+          <div class="wtime">${wuTime(l.startTime)}</div>
+        </div>`;
+    }).join("") : '<div class="empty" style="font-size:12px;text-align:center;">–</div>';
+    html+=`<div class="wcol">${head}${cells}</div>`;
+  }
+  box.innerHTML=html;
+}
+
+function renderStatus(todayLessons){
   const dot=document.getElementById("statusDot"), txt=document.getElementById("statusText");
   const cur=nowMinutes();
-  const active=lessons.find(l=>l.code!=="cancelled" && cur>=wuMinutes(l.startTime) && cur<wuMinutes(l.endTime));
-  if(active){
-    dot.className="dot";
-    txt.textContent = `Gerade: ${pickName(active.su,"name")} · ${pickName(active.ro,"name")||"–"}`;
-    return;
-  }
-  const upcoming=lessons.filter(l=>l.code!=="cancelled" && wuMinutes(l.startTime)>cur)
-                        .sort((a,b)=>a.startTime-b.startTime)[0];
-  if(upcoming){
-    dot.className="dot";
-    const inMin=wuMinutes(upcoming.startTime)-cur;
-    txt.textContent = `Pause · nächste: ${pickName(upcoming.su,"name")} in ${inMin} Min`;
-  } else {
-    dot.className="dot off";
-    txt.textContent = lessons.length? "Schule aus für heute" : "Heute schulfrei";
-  }
+  const lessons=(todayLessons||[]).filter(l=>l.code!=="cancelled").sort((a,b)=>a.startTime-b.startTime);
+  const active=lessons.find(l=>cur>=wuMinutes(l.startTime) && cur<wuMinutes(l.endTime));
+  if(active){ dot.className="dot"; txt.textContent=`Gerade: ${pickShort(active.su)} · ${pickShort(active.ro)||"–"}`; return; }
+  const next=lessons.find(l=>wuMinutes(l.startTime)>cur);
+  if(next){ dot.className="dot"; txt.textContent=`Pause · nächste: ${pickShort(next.su)} in ${wuMinutes(next.startTime)-cur} Min`; }
+  else { dot.className="dot off"; txt.textContent=lessons.length? "Schule aus für heute" : "Heute schulfrei"; }
 }
 
-function donut(canvasId, pct, color){
-  const ctx=document.getElementById(canvasId);
-  const cfg={ type:"doughnut",
-    data:{ datasets:[{ data:[pct,100-pct], backgroundColor:[color,"#2c3358"],
-            borderWidth:0, cutout:"74%" }] },
-    options:{ plugins:{legend:{display:false},tooltip:{enabled:false}},
-              responsive:true, maintainAspectRatio:false, animation:{duration:600} } };
-  return new Chart(ctx,cfg);
+function donut(id, pct, color){
+  return new Chart(document.getElementById(id), {
+    type:"doughnut",
+    data:{ datasets:[{ data:[pct,100-pct], backgroundColor:[color,"#2c3358"], borderWidth:0, cutout:"74%" }] },
+    options:{ plugins:{legend:{display:false},tooltip:{enabled:false}}, responsive:true, maintainAspectRatio:false, animation:{duration:500} }
+  });
 }
 
-function renderDayProgress(lessons){
-  const active=lessons.filter(l=>l.code!=="cancelled");
+function renderDayProgress(todayLessons){
+  const active=(todayLessons||[]).filter(l=>l.code!=="cancelled").sort((a,b)=>a.startTime-b.startTime);
   let pct=0, sub="Kein Unterricht";
   if(active.length){
-    const start=wuMinutes(active[0].startTime);
-    const end=wuMinutes(active[active.length-1].endTime);
-    const cur=nowMinutes();
-    pct=Math.max(0,Math.min(100, Math.round((cur-start)/(end-start)*100)));
-    const totalDone=active.filter(l=>nowMinutes()>=wuMinutes(l.endTime)).length;
-    sub = cur<start ? `Start um ${wuTime(active[0].startTime)}`
-         : cur>=end ? "Feierabend"
-         : `${totalDone}/${active.length} Stunden vorbei`;
+    const s=wuMinutes(active[0].startTime), e=wuMinutes(active[active.length-1].endTime), cur=nowMinutes();
+    pct=Math.max(0,Math.min(100,Math.round((cur-s)/(e-s)*100)));
+    const done=active.filter(l=>cur>=wuMinutes(l.endTime)).length;
+    sub = cur<s ? `Start um ${wuTime(active[0].startTime)}` : cur>=e ? "Feierabend" : `${done}/${active.length} Stunden vorbei`;
   }
-  document.getElementById("dayPct").textContent = pct+"%";
-  document.getElementById("daySub").textContent = sub;
+  document.getElementById("dayPct").textContent=pct+"%";
+  document.getElementById("daySub").textContent=sub;
   if(dayChart) dayChart.destroy();
-  dayChart = donut("dayChart", pct, "#6c7bff");
+  dayChart=donut("dayChart",pct,"#6c7bff");
 }
 
 function renderYearProgress(sy){
   if(!sy){ document.getElementById("yearPct").textContent="–"; return; }
-  const start=parseYmd(sy.startDate), end=parseYmd(sy.endDate), now=new Date();
-  const pct=Math.max(0,Math.min(100, Math.round((now-start)/(end-start)*100)));
-  const daysLeft=Math.max(0, Math.ceil((end-now)/86400000));
-  document.getElementById("yearPct").textContent = pct+"%";
-  document.getElementById("yearSub").textContent = daysLeft>0? `noch ${daysLeft} Tage` : "Schuljahr vorbei";
+  const s=parseYmd(sy.startDate), e=parseYmd(sy.endDate), now=new Date();
+  const pct=Math.max(0,Math.min(100,Math.round((now-s)/(e-s)*100)));
+  const left=Math.max(0,Math.ceil((e-now)/86400000));
+  document.getElementById("yearPct").textContent=pct+"%";
+  document.getElementById("yearSub").textContent=left>0? `noch ${left} Tage` : "Schuljahr vorbei";
   if(yearChart) yearChart.destroy();
-  yearChart = donut("yearChart", pct, "#35d0a5");
+  yearChart=donut("yearChart",pct,"#35d0a5");
 }
 
 function renderExams(exams){
   const box=document.getElementById("exams");
-  const today=new Date(); today.setHours(0,0,0,0);
-  const list=exams.map(e=>{
-    const raw=e.examDate||e.date;
-    const d=parseYmd(raw);
-    const days=Math.ceil((d-today)/86400000);
-    return { ...e, d, days };
+  const t0=startOfDay(new Date());
+  const list=(exams||[]).map(e=>{
+    const d=parseYmd(e.examDate||e.date);
+    return { ...e, d, days:Math.ceil((d-t0)/86400000) };
   }).filter(e=>e.days>=0).sort((a,b)=>a.days-b.days).slice(0,6);
-
   if(!list.length){ box.innerHTML='<div class="empty">Keine anstehenden Tests</div>'; return; }
   box.innerHTML=list.map(e=>{
-    const subj=e.subject || pickName(e.su,"name") || "";
-    const soon=e.days<=3?" soon":"";
-    const when = e.days===0?"heute":e.days===1?"morgen":e.days+" Tagen";
-    return `<div class="exam${soon}">
+    const subj=e.subject || pickShort(e.su) || "";
+    return `<div class="exam${e.days<=3?" soon":""}">
       <div><div class="name">${e.name||"Prüfung"}${subj?" · "+subj:""}</div>
            <div class="esub">${e.d.toLocaleDateString("de-DE",{weekday:"short",day:"numeric",month:"short"})}</div></div>
-      <div class="cd"><div class="n">${e.days||"0"}</div><div class="u">${e.days===0?"heute":"in "+ (e.days===1?"1 Tag":e.days+" Tagen")}</div></div>
+      <div class="cd"><div class="n">${e.days}</div><div class="u">${e.days===0?"heute":e.days===1?"1 Tag":e.days+" Tage"}</div></div>
     </div>`;
   }).join("");
 }
 
+function render(data){
+  updateRangeLabel();
+  document.getElementById("updated").textContent=new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+  const all=data.timetable||[];
+  if(view==="week") renderWeek(all); else renderDay(all);
+  renderStatus(data.today);
+  renderDayProgress(data.today);
+  renderYearProgress(data.schoolyear);
+  renderExams(data.exams);
+}
+
+function demoData(){
+  const {start,end}=currentRange();
+  const subs=[["D","Berger"],["SYT","WS"],["INSY","SYT"],["AM","Novak"],["WIR_3","Weber"],["ITP2","Klein"]];
+  const tt=[]; let d=new Date(start);
+  while(d<=end){
+    if(d.getDay()>=1 && d.getDay()<=5){
+      const dy=ymd(d);
+      const times=[[750,840],[840,930],[945,1035],[1035,1125],[1135,1225],[1225,1315]];
+      times.forEach((tm,i)=>{
+        const [su,te]=subs[i%subs.length];
+        tt.push({ date:dy, startTime:tm[0], endTime:tm[1], su:[{name:su}], te:[{name:te}], ro:[{name:"E2 055"}], code: i===4&&isToday(d)?"cancelled":null });
+      });
+    }
+    d=addDays(d,1);
+  }
+  const todayY=ymd(new Date());
+  return { timetable:tt, today:tt.filter(p=>p.date===todayY), schoolyear:{startDate:20250908,endDate:20260703}, exams:[{name:"Schularbeit",subject:"AM",examDate:ymd(addDays(new Date(),4))}] };
+}
+
 async function load(){
   const banner=document.getElementById("banner");
+  const {start,end}=currentRange();
   if(!PROXY_URL){
     banner.className="banner show";
-    banner.textContent="Demo-Modus: Trage oben im Code deine Cloudflare-Worker-URL bei PROXY_URL ein, um echte WebUntis-Daten zu laden.";
-    render(demoData());
-    return;
+    banner.textContent="Demo-Modus: PROXY_URL im Code eintragen, um echte WebUntis-Daten zu laden.";
+    render(demoData()); return;
   }
   try{
-    const res=await fetch(PROXY_URL,{cache:"no-store"});
+    const res=await fetch(`${PROXY_URL}?start=${ymd(start)}&end=${ymd(end)}`,{cache:"no-store"});
     const data=await res.json();
     if(data.error) throw new Error(data.error);
     banner.className="banner";
@@ -332,6 +377,15 @@ async function load(){
     render(demoData());
   }
 }
+
+document.getElementById("seg").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  view=b.dataset.view; load();
+});
+document.getElementById("prev").addEventListener("click",()=>{ cursor=addDays(cursor, view==="week"?-7:-1); load(); });
+document.getElementById("next").addEventListener("click",()=>{ cursor=addDays(cursor, view==="week"?7:1); load(); });
+document.getElementById("today").addEventListener("click",()=>{ cursor=startOfDay(new Date()); load(); });
+
 load();
 setInterval(load, 60000);
 </script>
