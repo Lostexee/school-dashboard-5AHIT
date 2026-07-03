@@ -99,7 +99,6 @@
 <div class="wrap">
   <header>
     <div>
-      <h1 id="greeting">Hallo</h1>
       <div class="date" id="today"></div>
     </div>
     <div class="status-pill"><span class="dot" id="statusDot"></span><span id="statusText">…</span></div>
@@ -190,8 +189,6 @@ let dayChart, yearChart;
 
 function render(data){
   const now = new Date();
-  document.getElementById("greeting").textContent =
-    `${now.getHours()<11?"Guten Morgen":now.getHours()<18?"Hallo":"Guten Abend"}, ${firstName()} 👋`;
   document.getElementById("today").textContent =
     now.toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   document.getElementById("updated").textContent = now.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
@@ -206,7 +203,7 @@ function render(data){
 
 function renderTimetable(lessons){
   const box = document.getElementById("timetable");
-  if(!lessons.length){ box.innerHTML = '<div class="empty">Heute keine Stunden 🎉</div>'; return; }
+  if(!lessons.length){ box.innerHTML = '<div class="empty">Heute keine Stunden</div>'; return; }
   const cur = nowMinutes();
   box.innerHTML = lessons.map(l=>{
     const start=wuMinutes(l.startTime), end=wuMinutes(l.endTime);
@@ -272,7 +269,7 @@ function renderDayProgress(lessons){
     pct=Math.max(0,Math.min(100, Math.round((cur-start)/(end-start)*100)));
     const totalDone=active.filter(l=>nowMinutes()>=wuMinutes(l.endTime)).length;
     sub = cur<start ? `Start um ${wuTime(active[0].startTime)}`
-         : cur>=end ? "Feierabend 🎉"
+         : cur>=end ? "Feierabend"
          : `${totalDone}/${active.length} Stunden vorbei`;
   }
   document.getElementById("dayPct").textContent = pct+"%";
@@ -302,7 +299,7 @@ function renderExams(exams){
     return { ...e, d, days };
   }).filter(e=>e.days>=0).sort((a,b)=>a.days-b.days).slice(0,6);
 
-  if(!list.length){ box.innerHTML='<div class="empty">Keine anstehenden Tests 🙌</div>'; return; }
+  if(!list.length){ box.innerHTML='<div class="empty">Keine anstehenden Tests</div>'; return; }
   box.innerHTML=list.map(e=>{
     const subj=e.subject || pickName(e.su,"name") || "";
     const soon=e.days<=3?" soon":"";
